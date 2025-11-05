@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-
   schedule:
     - cron: '*/5 * * * *'
 
@@ -19,31 +18,41 @@ jobs:
         php-versions: ['7.4']
     name: integration-tests (PHP ${{ matrix.php-versions }})
     steps:
-      - uses: actions/checkout@v3
+      # Checkout con la última versión estable
+      - uses: actions/checkout@v4
+
+      # Instala PHP
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-versions }}
+
+      # Valida composer.json
       - name: Validate composer.json and composer.lock
         run: composer validate
 
+      # Obtiene el directorio de cache de composer
       - name: Get Composer Cache Directory
         id: composer-cache
         run: |
-          echo "::set-output name=dir::$(composer config cache-files-dir)"
-      - uses: actions/cache@v2
+          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      # Usa la versión actualizada de cache
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-${{ matrix.php-versions }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-
+            ${{ runner.os }}-${{ matrix.php-versions }}-composer-
 
+      # Instala dependencias
       - name: Install dependencies
-        run: |
-          composer update --prefer-dist --no-progress
+        run: composer update --prefer-dist --no-progress
+
+      # Ejecuta el script principal
       - name: Run script
-        run: |
-          php index.php
+        run: php index.php
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
